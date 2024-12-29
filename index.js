@@ -99,7 +99,8 @@ app.post('/login', async (req, res) => {
 app.post('/updateLocation', async (req, res) => {
   try {
     const { userId, latitude, longitude } = req.body;
-    await addDoc(collection(db, 'locations'), {
+    const locationDocRef = doc(db, 'locations', userId);
+    await setDoc(locationDocRef, {
       userId,
       location: { latitude, longitude },
       updatedAt: Timestamp.now() 
