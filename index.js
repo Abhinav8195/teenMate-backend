@@ -99,9 +99,6 @@ app.post('/login', async (req, res) => {
 app.post('/updateLocation', async (req, res) => {
   try {
     const { userId, latitude, longitude } = req.body;
-    if (!userId || !latitude || !longitude) {
-      return res.status(400).json({ message: 'Missing required fields: userId, latitude, longitude' });
-    }
     await addDoc(collection(db, 'locations'), {
       userId,
       location: { latitude, longitude },
@@ -114,6 +111,7 @@ app.post('/updateLocation', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 
 //get location
 app.get('/getLocation/:userId', async (req, res) => {
