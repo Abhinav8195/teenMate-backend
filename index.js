@@ -94,6 +94,37 @@ app.post('/login', async (req, res) => {
     res.status(500).json({ message: 'Login failed' });
   }
 });
+// location
+// Endpoint to update the user's location in MongoDB
+app.post('/updateLocation', async (req, res) => {
+  try {
+    const { userId, latitude, longitude } = req.body;
+
+    // Validate the required fields
+    if (!userId || !latitude || !longitude) {
+      return res.status(400).json({ message: 'Missing required fields: userId, latitude, longitude' });
+    }
+
+    // Find the user in MongoDB
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Update the user's location
+    user.location = { latitude, longitude };
+    user.updatedAt = new Date();  // Optionally update the timestamp
+
+    // Save the updated user data
+    await user.save();
+
+    // Respond with a success message
+    return res.status(200).json({ message: 'Location updated successfully' });
+  } catch (error) {
+    console.error('Error updating location:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 
 // Fetch matches
 app.get('/matches', async (req, res) => {
