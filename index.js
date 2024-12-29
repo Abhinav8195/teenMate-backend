@@ -167,39 +167,66 @@ const calculateDistance = (lat1, lon1, lat2, lon2) => {
   return R * c; // Distance in km
 };
 
-
-// Get the user's location
 app.get('/nearby-users', async (req, res) => {
   try {
-    const { latitude, longitude, radius, userId } = req.query; // Get userId, latitude, longitude, and radius
+    const { latitude, longitude, radius, userId } = req.query; 
 
     if (!latitude || !longitude || !radius || !userId) {
       return res.status(400).json({ message: 'Latitude, longitude, radius, and userId are required' });
     }
 
-    // Fetch all users with location data
-    const users = await User.find({ location: { $exists: true } });
+    // Fetch the current user with populated matches and likedProfiles
+    const currentUser = await User.findById(userId)
+      .populate('matches', '_id')
+      .populate('likedProfiles', '_id');
 
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Extract friend and crush IDs
+    const friendIds = currentUser.matches.map(friend => friend._id.toString());
+    const crushIds = currentUser.likedProfiles.map(crush => crush._id.toString());
+
+    // Determine gender filter based on current user's gender
+    let filter = {};
+    if (currentUser.gender === 'Men') {
+      filter.gender = 'Women';
+    } else if (currentUser.gender === 'Women') {
+      filter.gender = 'Men';
+    }
+
+    // Add type filter if present
+    if (currentUser.type) {
+      filter.type = currentUser.type;
+    }
+
+    // Fetch all users with location data and matching gender/type filter
+    const users = await User.find({ location: { $exists: true }, ...filter });
+
+    // Filter users within the specified radius and exclude friends and crushes
     const nearbyUsers = users.filter(user => {
-      if (user.location && user._id.toString() !== userId) { // Exclude the current user
+      if (user.location && user._id.toString() !== userId) { 
         const distance = calculateDistance(
           parseFloat(latitude),
           parseFloat(longitude),
           parseFloat(user.location.latitude),
           parseFloat(user.location.longitude)
         );
-
-        return distance <= parseFloat(radius); // Check if the distance is within the radius
+        return distance <= parseFloat(radius) && 
+               !friendIds.includes(user._id.toString()) &&
+               !crushIds.includes(user._id.toString());
       }
       return false;
     });
 
-    res.status(200).json({ nearbyUsers }); // Return the full user data, excluding the current user
+    res.status(200).json({ nearbyUsers });
   } catch (error) {
     console.error('Error fetching nearby users:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 
 
 
