@@ -7,7 +7,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { initializeApp } = require("firebase/app");
-const { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs, Timestamp } = require("firebase/firestore");
+const { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs, Timestamp, doc,getDoc } = require("firebase/firestore");
 
 // Firebase configuration
 const firebaseConfig = {
@@ -95,25 +95,60 @@ app.post('/login', async (req, res) => {
   }
 });
 // location
-// Endpoint to update the user's location in MongoDB
+
 app.post('/updateLocation', async (req, res) => {
-  const { userId, latitude, longitude } = req.body;
+  try {
+    const { userId, latitude, longitude } = req.body;
 
+    // Validate the required fields
+    if (!userId || !latitude || !longitude) {
+      return res.status(400).json({ message: 'Missing required fields' });
+    }
 
-  const user = await User.findByIdAndUpdate(
-    userId,
-    { $set: { 'location.latitude': latitude, 'location.longitude': longitude } },
-    { new: true }
-  );
+    // Reference to the user document in Firestore
+    const userRef = doc(db, 'users', userId);
 
-  if (!user) {
-    return res.status(404).json({ message: 'User not found' });
+    // Set or update the user's location
+    await setDoc(
+      userRef,
+      {
+        location: { latitude, longitude },
+        updatedAt: new Date(), // Optionally update the timestamp
+      },
+      { merge: true } // Ensure other fields in the document are not overwritten
+    );
+
+    res.status(200).json({ message: 'Location updated successfully' });
+  } catch (error) {
+    console.error('Error updating location:', error);
+    res.status(500).json({ message: 'Internal server error' });
   }
-
-  return res.status(200).json({ message: 'Location updated successfully', user });
 });
+//get location
+app.get('/getLocation/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
 
+    // Reference to the user document in Firestore
+    const userRef = doc(db, 'users', userId);
 
+    // Fetch the user document
+    const userSnap = await getDoc(userRef);
+
+    if (!userSnap.exists()) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Extract and return the location
+    const userData = userSnap.data();
+    const location = userData.location || null;
+
+    res.status(200).json({ location });
+  } catch (error) {
+    console.error('Error fetching location:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
 // Fetch matches
 app.get('/matches', async (req, res) => {
   try {
