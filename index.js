@@ -35,13 +35,10 @@ app.use(bodyParser.json());
 app.use(express.json());
 
 const mongoURI = process.env.MONGO_URI;
-mongoose.connect(mongoURI)
-  .then(() => {
-    console.log('Connected to MongoDB');
-  })
-  .catch(error => {
-    console.log('Error connecting to MongoDB', error);
-  });
+mongoose.connect(mongoURI, {
+  serverSelectionTimeoutMS: 5000, // Increase timeout to 5 seconds
+  socketTimeoutMS: 45000, // Close sockets after 45 seconds of inactivity
+})
 
 const User = require('./models/user');
 const Chat = require('./models/message');
