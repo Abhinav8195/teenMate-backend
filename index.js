@@ -44,7 +44,7 @@ mongoose.connect(mongoURI)
   });
 
 const User = require('./models/user');
-const Chat = require('./models/message');
+// const Chat = require('./models/message');
 
 // User registration
 app.post('/register', async (req, res) => {
@@ -96,16 +96,57 @@ app.post('/login', async (req, res) => {
 });
 // location
 
+
+//firebase
+// app.post('/updateLocation', async (req, res) => {
+//   try {
+//     const { userId, latitude, longitude } = req.body;
+//     const locationDocRef = doc(db, 'locations', userId);
+//     await setDoc(locationDocRef, {
+//       userId,
+//       location: { latitude, longitude },
+//       updatedAt: Timestamp.now() 
+//     });
+
+//     res.status(200).json({ message: 'Location updated successfully' });
+//   } catch (error) {
+//     console.error('Error updating location:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
+
+
+//get location
+//firebase
+// app.get('/getLocation/:userId', async (req, res) => {
+//   try {
+//     const { userId } = req.params;
+
+//     const userRef = doc(db, 'locations', userId);
+//     const userSnap = await getDoc(userRef);
+
+//     if (!userSnap.exists()) {
+//       return res.status(404).json({ message: 'User not found' });
+//     }
+//     const userData = userSnap.data();
+//     const location = userData.location || null;
+
+//     res.status(200).json({ location });
+//   } catch (error) {
+//     console.error('Error fetching location:', error);
+//     res.status(500).json({ message: 'Internal server error' });
+//   }
+// });
 app.post('/updateLocation', async (req, res) => {
   try {
     const { userId, latitude, longitude } = req.body;
-    const locationDocRef = doc(db, 'locations', userId);
-    await setDoc(locationDocRef, {
-      userId,
-      location: { latitude, longitude },
-      profilesData,
-      updatedAt: Timestamp.now() 
-    });
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+    user.location = { latitude, longitude };
+    await user.save();
 
     res.status(200).json({ message: 'Location updated successfully' });
   } catch (error) {
@@ -115,26 +156,54 @@ app.post('/updateLocation', async (req, res) => {
 });
 
 
-//get location
-app.get('/getLocation/:userId', async (req, res) => {
+const calculateDistance = (lat1, lon1, lat2, lon2) => {
+  const R = 6371; // Radius of the Earth in km
+  const dLat = (lat2 - lat1) * (Math.PI / 180);
+  const dLon = (lon2 - lon1) * (Math.PI / 180);
+  const a = Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+            Math.cos(lat1 * (Math.PI / 180)) * Math.cos(lat2 * (Math.PI / 180)) *
+            Math.sin(dLon / 2) * Math.sin(dLon / 2);
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+  return R * c; // Distance in km
+};
+
+
+// Get the user's location
+app.get('/nearby-users', async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { latitude, longitude, radius, userId } = req.query; // Get userId, latitude, longitude, and radius
 
-    const userRef = doc(db, 'locations', userId);
-    const userSnap = await getDoc(userRef);
-
-    if (!userSnap.exists()) {
-      return res.status(404).json({ message: 'User not found' });
+    if (!latitude || !longitude || !radius || !userId) {
+      return res.status(400).json({ message: 'Latitude, longitude, radius, and userId are required' });
     }
-    const userData = userSnap.data();
-    const location = userData.location || null;
 
-    res.status(200).json({ location });
+    // Fetch all users with location data
+    const users = await User.find({ location: { $exists: true } });
+
+    const nearbyUsers = users.filter(user => {
+      if (user.location && user._id.toString() !== userId) { // Exclude the current user
+        const distance = calculateDistance(
+          parseFloat(latitude),
+          parseFloat(longitude),
+          parseFloat(user.location.latitude),
+          parseFloat(user.location.longitude)
+        );
+
+        return distance <= parseFloat(radius); // Check if the distance is within the radius
+      }
+      return false;
+    });
+
+    res.status(200).json({ nearbyUsers }); // Return the full user data, excluding the current user
   } catch (error) {
-    console.error('Error fetching location:', error);
+    console.error('Error fetching nearby users:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+
+
+
 
 // Fetch matches
 app.get('/matches', async (req, res) => {
@@ -271,17 +340,9 @@ app.post('/send-message', async (req, res) => {
 app.get('/messages', async (req, res) => {
   try {
     const { senderId, receiverId } = req.query;
-
-    // Reference to the messages collection in Firestore
     const messagesRef = collection(db, 'messages');
-    
-    // Query to get all messages between sender and receiver, ordered by timestamp
     const q = query(messagesRef, orderBy('timestamp'));
-    
-    // Fetch all messages
     const snapshot = await getDocs(q);
-    
-    // Filter messages to find those between senderId and receiverId
     const messages = snapshot.docs
       .map(doc => ({ id: doc.id, ...doc.data() }))
       
