@@ -99,25 +99,14 @@ app.post('/login', async (req, res) => {
 app.post('/updateLocation', async (req, res) => {
   try {
     const { userId, latitude, longitude } = req.body;
-
-    // Validate the required fields
     if (!userId || !latitude || !longitude) {
       return res.status(400).json({ message: 'Missing required fields: userId, latitude, longitude' });
     }
-
-    // Reference to the new location document in Firestore
-    const locationRef = doc(db, 'locations', userId);
-
-    // Add or overwrite the location document (no merge)
-    await setDoc(
-      locationRef,
-      {
-        userId,
-        location: { latitude, longitude },
-        updatedAt: new Date(), // Add a timestamp
-      }
-      // Do not use merge here to fully overwrite the document
-    );
+    await addDoc(collection(db, 'locations'), {
+      userId,
+      location: { latitude, longitude },
+      updatedAt: Timestamp.now() 
+    });
 
     res.status(200).json({ message: 'Location updated successfully' });
   } catch (error) {
