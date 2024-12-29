@@ -96,36 +96,23 @@ app.post('/login', async (req, res) => {
 });
 // location
 // Endpoint to update the user's location in MongoDB
-// Endpoint to update the user's location in MongoDB
-app.post('/updateLocation', async (req, res) => {
-  try {
-    const { userId, latitude, longitude } = req.body;
-
-    // Validate the required fields
-    if (!userId || latitude == null || longitude == null) {
-      return res.status(400).json({ message: 'Missing required fields: userId, latitude, longitude' });
-    }
-
-    // Find the user in MongoDB
-    const user = await User.findById(userId);
-    if (!user) {
-      return res.status(404).json({ message: 'User not found' });
-    }
-
-    // Check if location is null or needs to be updated
-    if (!user.location || user.location.latitude !== latitude || user.location.longitude !== longitude) {
-      user.location = { latitude, longitude }; // Update or initialize the location field
-      user.updatedAt = new Date(); // Update the timestamp
-      await user.save(); // Save the updated user data
-      return res.status(200).json({ message: 'Location updated successfully' });
-    }
-
-    // If location is already up-to-date
-    return res.status(200).json({ message: 'Location is already up-to-date' });
-  } catch (error) {
-    console.error('Error updating location:', error);
-    res.status(500).json({ message: 'Internal server error' });
+app.patch('/updateLocation', async (req, res) => {
+  const { userId, latitude, longitude } = req.body;
+  if (!userId || !latitude || !longitude) {
+    return res.status(400).json({ message: 'Missing required fields' });
   }
+
+  const user = await User.findByIdAndUpdate(
+    userId,
+    { $set: { 'location.latitude': latitude, 'location.longitude': longitude } },
+    { new: true }
+  );
+
+  if (!user) {
+    return res.status(404).json({ message: 'User not found' });
+  }
+
+  return res.status(200).json({ message: 'Location updated successfully', user });
 });
 
 

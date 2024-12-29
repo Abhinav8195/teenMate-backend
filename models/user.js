@@ -31,10 +31,7 @@ const userSchema = new Schema({
     type: String,
     required: true,
   },
-  location: {
-    latitude: { type: Number, default: null },
-    longitude: { type: Number, default: null },
-  },
+  location: { type: { latitude: Number, longitude: Number } },
   hometown: {
     type: String,
     required: true,
