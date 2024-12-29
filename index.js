@@ -96,11 +96,9 @@ app.post('/login', async (req, res) => {
 });
 // location
 // Endpoint to update the user's location in MongoDB
-app.patch('/updateLocation', async (req, res) => {
+app.post('/updateLocation', async (req, res) => {
   const { userId, latitude, longitude } = req.body;
-  if (!userId || !latitude || !longitude) {
-    return res.status(400).json({ message: 'Missing required fields' });
-  }
+
 
   const user = await User.findByIdAndUpdate(
     userId,
