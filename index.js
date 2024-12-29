@@ -7,7 +7,7 @@ const cors = require('cors');
 require('dotenv').config();
 
 const { initializeApp } = require("firebase/app");
-const { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs, Timestamp, doc,getDoc } = require("firebase/firestore");
+const { getFirestore, collection, addDoc, query, orderBy, onSnapshot, getDocs, Timestamp, doc,getDoc, setDoc } = require("firebase/firestore");
 
 // Firebase configuration
 const firebaseConfig = {
@@ -102,20 +102,21 @@ app.post('/updateLocation', async (req, res) => {
 
     // Validate the required fields
     if (!userId || !latitude || !longitude) {
-      return res.status(400).json({ message: 'Missing required fields' });
+      return res.status(400).json({ message: 'Missing required fields: userId, latitude, longitude' });
     }
 
-    // Reference to the user document in Firestore
-    const userRef = doc(db, 'users', userId);
+    // Reference to the new location document in Firestore
+    const locationRef = doc(db, 'locations', userId);
 
-    // Set or update the user's location
+    // Add or overwrite the location document (no merge)
     await setDoc(
-      userRef,
+      locationRef,
       {
+        userId,
         location: { latitude, longitude },
-        updatedAt: new Date(), // Optionally update the timestamp
-      },
-      { merge: true } // Ensure other fields in the document are not overwritten
+        updatedAt: new Date(), // Add a timestamp
+      }
+      // Do not use merge here to fully overwrite the document
     );
 
     res.status(200).json({ message: 'Location updated successfully' });
@@ -124,6 +125,7 @@ app.post('/updateLocation', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 //get location
 app.get('/getLocation/:userId', async (req, res) => {
   try {
