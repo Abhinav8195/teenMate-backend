@@ -103,6 +103,7 @@ app.post('/updateLocation', async (req, res) => {
     await setDoc(locationDocRef, {
       userId,
       location: { latitude, longitude },
+      profilesData,
       updatedAt: Timestamp.now() 
     });
 
@@ -119,17 +120,12 @@ app.get('/getLocation/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
 
-    // Reference to the user document in Firestore
-    const userRef = doc(db, 'users', userId);
-
-    // Fetch the user document
+    const userRef = doc(db, 'locations', userId);
     const userSnap = await getDoc(userRef);
 
     if (!userSnap.exists()) {
       return res.status(404).json({ message: 'User not found' });
     }
-
-    // Extract and return the location
     const userData = userSnap.data();
     const location = userData.location || null;
 
@@ -139,6 +135,7 @@ app.get('/getLocation/:userId', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 // Fetch matches
 app.get('/matches', async (req, res) => {
   try {
