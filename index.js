@@ -348,19 +348,22 @@ app.get('/get-matches/:userId', async (req, res) => {
 // Send a message to Firestore
 app.post('/send-message', async (req, res) => {
   try {
-    const { senderId, receiverId, message } = req.body;
+    const { senderId, receiverId, message, image } = req.body;
     await addDoc(collection(db, 'messages'), {
       senderId,
       receiverId,
       message,
-      timestamp: Timestamp.now()
+      image, 
+      timestamp: Timestamp.now(),
     });
+
     res.status(200).json({ message: 'Message sent successfully' });
   } catch (error) {
     console.error('Error sending message:', error);
     res.status(500).json({ message: 'Error sending message' });
   }
 });
+
 
 // Get messages between users
 // Get messages between users from Firestore
