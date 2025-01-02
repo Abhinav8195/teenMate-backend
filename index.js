@@ -299,16 +299,54 @@ app.post('/like-profile', async (req, res) => {
 app.get('/received-likes/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    const likes = await User.findById(userId)
+    
+    // Fetch the current user with their matches and liked profiles
+    const currentUser = await User.findById(userId)
+      .populate('matches', '_id')
+      .populate('likedProfiles', '_id')
       .populate('receivedLikes.userId', 'firstName imageUrls prompts')
-      .select('receivedLikes');
+      .select('receivedLikes matches likedProfiles');
 
-    res.status(200).json({ receivedLikes: likes.receivedLikes });
+    if (!currentUser) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    // Extract the IDs of the matched and liked profiles
+    const friendIds = currentUser.matches.map(friend => friend._id.toString());
+    const crushIds = currentUser.likedProfiles.map(crush => crush._id.toString());
+
+    // Filter received likes to exclude users who are already friends or matches
+    const filteredLikes = currentUser.receivedLikes.filter(like => {
+      const likeUserId = like.userId._id.toString();
+      return !friendIds.includes(likeUserId) && !crushIds.includes(likeUserId);
+    });
+
+    res.status(200).json({ receivedLikes: filteredLikes });
   } catch (error) {
     console.error('Error fetching received likes:', error);
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+//delete
+app.delete('/delete-like', async (req, res) => {
+  try {
+    const { userId, likedUserId } = req.body;
+    const user = await User.findById(userId);
+
+    if (!user) {
+      return res.status(404).json({ message: 'User not found' });
+    }
+
+    user.receivedLikes = user.receivedLikes.filter(like => like.userId.toString() !== likedUserId);
+    await user.save();
+
+    res.status(200).json({ message: 'Like request deleted successfully' });
+  } catch (error) {
+    console.error('Error deleting like request:', error);
+    res.status(500).json({ message: 'Internal server error' });
+  }
+});
+
 
 // Create a match
 app.post('/create-match', async (req, res) => {
