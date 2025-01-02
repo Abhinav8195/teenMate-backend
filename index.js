@@ -221,6 +221,7 @@ app.get('/nearby-users', async (req, res) => {
     });
 
     res.status(200).json({ nearbyUsers });
+    console.log('object',nearbyUsers)
   } catch (error) {
     console.error('Error fetching nearby users:', error);
     res.status(500).json({ message: 'Internal server error' });
@@ -299,26 +300,24 @@ app.post('/like-profile', async (req, res) => {
 app.get('/received-likes/:userId', async (req, res) => {
   try {
     const { userId } = req.params;
-    
-    // Fetch the current user with their matches and liked profiles
+
+    // Fetch the current user with their received likes and matches
     const currentUser = await User.findById(userId)
       .populate('matches', '_id')
-      .populate('likedProfiles', '_id')
       .populate('receivedLikes.userId', 'firstName imageUrls prompts')
-      .select('receivedLikes matches likedProfiles');
+      .select('receivedLikes matches');
 
     if (!currentUser) {
       return res.status(404).json({ message: 'User not found' });
     }
 
-    // Extract the IDs of the matched and liked profiles
-    const friendIds = currentUser.matches.map(friend => friend._id.toString());
-    const crushIds = currentUser.likedProfiles.map(crush => crush._id.toString());
+    // Extract the IDs of the matched profiles
+    const matchIds = currentUser.matches.map(match => match._id.toString());
 
-    // Filter received likes to exclude users who are already friends or matches
+    // Filter received likes to exclude users who are already matches
     const filteredLikes = currentUser.receivedLikes.filter(like => {
       const likeUserId = like.userId._id.toString();
-      return !friendIds.includes(likeUserId) && !crushIds.includes(likeUserId);
+      return !matchIds.includes(likeUserId);
     });
 
     res.status(200).json({ receivedLikes: filteredLikes });
@@ -327,18 +326,32 @@ app.get('/received-likes/:userId', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
+
 //delete
 app.delete('/delete-like', async (req, res) => {
   try {
     const { userId, likedUserId } = req.body;
-    const user = await User.findById(userId);
 
+    // Find the user who sent the like
+    const user = await User.findById(userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
 
+    // Find the user who received the like
+    const likedUser = await User.findById(likedUserId);
+    if (!likedUser) {
+      return res.status(404).json({ message: 'Liked user not found' });
+    }
+
+    // Remove the like from the sender's receivedLikes array
     user.receivedLikes = user.receivedLikes.filter(like => like.userId.toString() !== likedUserId);
     await user.save();
+
+    // Remove the sender's profile from the liked user's likedProfiles array
+    likedUser.likedProfiles = likedUser.likedProfiles.filter(profileId => profileId.toString() !== userId);
+    await likedUser.save();
 
     res.status(200).json({ message: 'Like request deleted successfully' });
   } catch (error) {
@@ -346,6 +359,7 @@ app.delete('/delete-like', async (req, res) => {
     res.status(500).json({ message: 'Internal server error' });
   }
 });
+
 
 
 // Create a match
